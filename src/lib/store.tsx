@@ -1,0 +1,179 @@
+import { createContext, useContext, useEffect, useState } from 'react';
+import localforage from 'localforage';
+import { SyncConfig, GitHubSync } from './github';
+import { Task, parseTodo, stringifyTask, mergeTasks } from './todo';
+
+interface AppState {
+  tasks: Task[];
+  doneTasks: Task[];
+  config: SyncConfig | null;
+  lastSync: Date | null;
+  syncing: boolean;
+  error: string | null;
+}
+
+interface AppContextType extends AppState {
+  setConfig: (config: SyncConfig) => void;
+  sync: () => Promise<void>;
+  addTask: (line: string) => void;
+  updateTask: (id: string, line: string) => void;
+  toggleTask: (id: string) => void;
+  deleteTask: (id: string) => void;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [doneTasks, setDoneTasks] = useState<Task[]>([]);
+  const [config, setConfigState] = useState<SyncConfig | null>(null);
+  const [lastSync, setLastSync] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    async function loadData() {
+      const storedConfig = await localforage.getItem<SyncConfig>('github_config');
+      if (storedConfig) setConfigState(storedConfig);
+
+      const storedTasks = await localforage.getItem<string[]>('todo_txt');
+      if (storedTasks) setTasks(storedTasks.map(parseTodo));
+
+      const storedDone = await localforage.getItem<string[]>('done_txt');
+      if (storedDone) setDoneTasks(storedDone.map(parseTodo));
+
+      const storedLastSync = await localforage.getItem<Date>('last_sync');
+      if (storedLastSync) setLastSync(storedLastSync);
+      
+      setInitialized(true);
+      
+      // Auto-sync if configured
+      if (storedConfig) {
+        syncWithConfig(storedConfig).catch(console.error);
+      }
+    }
+    loadData();
+  }, []);
+
+  const syncWithConfig = async (currentConfig: SyncConfig) => {
+    setSyncing(true);
+    setError(null);
+    
+    try {
+      const github = new GitHubSync();
+      github.setConfig(currentConfig);
+
+      // Fetch remote states
+      const remoteTodo = await github.fetchFile('todo.txt');
+      const remoteDone = await github.fetchFile('done.txt');
+
+      // Load last synced states
+      const baseTodo = (await localforage.getItem<string[]>('todo_txt_base')) || [];
+      const baseDone = (await localforage.getItem<string[]>('done_txt_base')) || [];
+
+      // Current local states
+      // We need to re-fetch from state safely or assume the ones loaded
+      const localTodoStr = (await localforage.getItem<string[]>('todo_txt')) || [];
+      const localDoneStr = (await localforage.getItem<string[]>('done_txt')) || [];
+
+      // Merge
+      const mergedTodoStr = mergeTasks(baseTodo, localTodoStr, remoteTodo.content);
+      const mergedDoneStr = mergeTasks(baseDone, localDoneStr, remoteDone.content);
+
+      // Save to github if changed
+      let newTodoSha = remoteTodo.sha;
+      if (mergedTodoStr.join('\n') !== remoteTodo.content.join('\n')) {
+        newTodoSha = await github.saveFile('todo.txt', mergedTodoStr, remoteTodo.sha);
+      }
+
+      let newDoneSha = remoteDone.sha;
+      if (mergedDoneStr.join('\n') !== remoteDone.content.join('\n')) {
+        newDoneSha = await github.saveFile('done.txt', mergedDoneStr, remoteDone.sha);
+      }
+
+      // Update local base and state
+      await localforage.setItem('todo_txt_base', mergedTodoStr);
+      await localforage.setItem('done_txt_base', mergedDoneStr);
+      
+      const newSyncDate = new Date();
+      await localforage.setItem('last_sync', newSyncDate);
+      setLastSync(newSyncDate);
+
+      // We must update the React state here safely
+      setTasks(mergedTodoStr.map(parseTodo));
+      setDoneTasks(mergedDoneStr.map(parseTodo));
+      await localforage.setItem('todo_txt', mergedTodoStr);
+      await localforage.setItem('done_txt', mergedDoneStr);
+    } catch (e: any) {
+      setError(e.message || "Failed to sync");
+      console.error(e);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const sync = () => {
+    if (!config) return Promise.resolve();
+    return syncWithConfig(config);
+  };
+
+  const saveTasks = async (newTasks: Task[], newDoneTasks: Task[]) => {
+    setTasks(newTasks);
+    setDoneTasks(newDoneTasks);
+    await localforage.setItem('todo_txt', newTasks.map(stringifyTask));
+    await localforage.setItem('done_txt', newDoneTasks.map(stringifyTask));
+  };
+
+  const setConfig = async (newConfig: SyncConfig) => {
+    setConfigState(newConfig);
+    await localforage.setItem('github_config', newConfig);
+  };
+
+  const addTask = (line: string) => {
+    const task = parseTodo(line);
+    saveTasks([...tasks, task], doneTasks);
+  };
+
+  const updateTask = (id: string, line: string) => {
+    saveTasks(
+      tasks.map(t => t.id === id ? parseTodo(line) : t),
+      doneTasks
+    );
+  };
+
+  const toggleTask = (id: string) => {
+    const taskIndex = tasks.findIndex(t => t.id === id);
+    if (taskIndex >= 0) {
+      const task = tasks[taskIndex];
+      const newTask = parseTodo(`x ${new Date().toISOString().split('T')[0]} ${task.raw}`);
+      saveTasks(
+        tasks.filter(t => t.id !== id),
+        [...doneTasks, newTask]
+      );
+    }
+  };
+
+  const deleteTask = (id: string) => {
+    saveTasks(
+      tasks.filter(t => t.id !== id),
+      doneTasks.filter(t => t.id !== id)
+    );
+  };
+
+  if (!initialized) return null;
+
+  return (
+    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, setConfig, sync, addTask, updateTask, toggleTask, deleteTask }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (context === undefined) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+}

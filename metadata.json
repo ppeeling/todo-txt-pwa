@@ -1,0 +1,6 @@
+{
+  "name": "Todo.txt Synchronizer",
+  "description": "A fully featured todo.txt PWA that works offline on iPhone and Windows laptop, synchronizing with a private GitHub repo.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
