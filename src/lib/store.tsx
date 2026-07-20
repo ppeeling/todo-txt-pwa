@@ -197,7 +197,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addTask = (line: string) => {
-    const task = parseTodo(line);
+    let task = parseTodo(line);
+    if (!task.creationDate) {
+      task.creationDate = new Date().toISOString().split('T')[0];
+      task.raw = stringifyTask(task);
+    }
     saveTasks([...tasks, task], doneTasks);
   };
 
