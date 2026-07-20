@@ -10,6 +10,7 @@ interface AppState {
   lastSync: Date | null;
   syncing: boolean;
   error: string | null;
+  searchTerm: string;
 }
 
 interface AppContextType extends AppState {
@@ -19,6 +20,7 @@ interface AppContextType extends AppState {
   updateTask: (id: string, line: string) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
+  setSearchTerm: (term: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -31,6 +33,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const configRef = { current: config };
+  const syncingRef = { current: syncing };
+  
+  useEffect(() => {
+    configRef.current = config;
+    syncingRef.current = syncing;
+  }, [config, syncing]);
 
   useEffect(() => {
     async function loadData() {
@@ -123,6 +134,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setDoneTasks(newDoneTasks);
     await localforage.setItem('todo_txt', newTasks.map(stringifyTask));
     await localforage.setItem('done_txt', newDoneTasks.map(stringifyTask));
+    
+    // Auto-sync if configured and online
+    if (configRef.current && navigator.onLine && !syncingRef.current) {
+      syncWithConfig(configRef.current).catch(console.error);
+    }
   };
 
   const setConfig = async (newConfig: SyncConfig) => {
@@ -164,7 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (!initialized) return null;
 
   return (
-    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, setConfig, sync, addTask, updateTask, toggleTask, deleteTask }}>
+    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, searchTerm, setConfig, sync, addTask, updateTask, toggleTask, deleteTask, setSearchTerm }}>
       {children}
     </AppContext.Provider>
   );

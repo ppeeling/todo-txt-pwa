@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './lib/store';
 import { TaskInput } from './components/TaskInput';
 import { TaskList } from './components/TaskList';
 import { Settings } from './components/Settings';
+import { ReloadPrompt } from './components/ReloadPrompt';
 import { Settings as SettingsIcon } from 'lucide-react';
 
 function TodoApp() {
@@ -73,6 +74,7 @@ function TodoApp() {
           <span className="hidden sm:inline">done.txt tasks: {doneTasks.length}</span>
         </div>
       </footer>
+      <ReloadPrompt />
     </div>
   );
 }
