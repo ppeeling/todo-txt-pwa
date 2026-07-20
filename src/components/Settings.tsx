@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useApp } from '../lib/store';
-import { X, Github, RefreshCw } from 'lucide-react';
+import { X, Github, RefreshCw, ArrowRightToLine } from 'lucide-react';
 
 export function Settings({ onClose }: { onClose: () => void }) {
-  const { config, setConfig, sync, syncing, error } = useApp();
+  const { config, setConfig, sync, syncing, error, tasks, archiveTasks } = useApp();
   const [token, setToken] = useState(config?.token || '');
   const [owner, setOwner] = useState(config?.owner || '');
   const [repo, setRepo] = useState(config?.repo || '');
   const [branch, setBranch] = useState(config?.branch || 'main');
+
+  const hasCompletedTasks = tasks.some(t => t.completed);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,13 +17,26 @@ export function Settings({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="flex flex-col p-6 h-full">
+    <div className="flex flex-col p-6 h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Sync Settings</h3>
+        <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Actions</h3>
         <button onClick={onClose} className="p-1 hover:bg-white/5 rounded text-slate-400 hover:text-white transition-colors">
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      <div className="mb-8">
+        <button
+          onClick={archiveTasks}
+          disabled={!hasCompletedTasks}
+          className="w-full bg-white/5 hover:bg-white/10 text-slate-300 font-medium py-2 rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2 border border-white/10 text-sm"
+        >
+          <ArrowRightToLine className="w-4 h-4" />
+          Archive Completed Tasks
+        </button>
+      </div>
+
+      <h3 className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-6">Sync Settings</h3>
 
       <form onSubmit={handleSave} className="space-y-6">
         <div>

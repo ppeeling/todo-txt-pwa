@@ -1,10 +1,8 @@
 import { useApp } from '../lib/store';
-import { CheckCircle2, Circle, Eye, EyeOff, Archive, ArchiveX, ArrowRightToLine } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, EyeOff, Archive, ArchiveX } from 'lucide-react';
 
 export function TaskInput() {
-  const { tasks, addTask, searchTerm, setSearchTerm, showCompleted, setShowCompleted, showArchive, setShowArchive, showFuture, setShowFuture, archiveTasks } = useApp();
-  
-  const hasCompletedTasks = tasks.some(t => t.completed);
+  const { addTask, searchTerm, setSearchTerm, showCompleted, setShowCompleted, showArchive, setShowArchive, showFuture, setShowFuture } = useApp();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,17 +43,6 @@ export function TaskInput() {
             <span>Future</span>
           </button>
         </div>
-        
-        {hasCompletedTasks && (
-          <button
-            type="button"
-            onClick={archiveTasks}
-            className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400 hover:text-indigo-400 transition-colors"
-          >
-            <ArrowRightToLine className="w-3 h-3" />
-            Archive Completed
-          </button>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="relative flex items-center w-full">
