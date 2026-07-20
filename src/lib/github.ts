@@ -29,7 +29,10 @@ export class GitHubSync {
         owner: this.config.owner,
         repo: this.config.repo,
         path: path,
-        ref: this.config.branch || 'main'
+        ref: this.config.branch || 'main',
+        headers: {
+          'If-None-Match': ''
+        }
       });
 
       if (!Array.isArray(response.data) && response.data.type === 'file' && response.data.content) {

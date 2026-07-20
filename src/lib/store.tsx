@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import localforage from 'localforage';
 import { SyncConfig, GitHubSync } from './github';
 import { Task, parseTodo, stringifyTask, mergeTasks } from './todo';
@@ -44,8 +44,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [showArchive, setShowArchiveState] = useState(false);
   const [showFuture, setShowFutureState] = useState(true);
 
-  const configRef = { current: config };
-  const syncingRef = { current: syncing };
+  const configRef = useRef(config);
+  const syncingRef = useRef(syncing);
+  const dirtyRef = useRef(false);
   
   useEffect(() => {
     configRef.current = config;
@@ -86,7 +87,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const syncWithConfig = async (currentConfig: SyncConfig) => {
+    if (syncingRef.current) {
+      dirtyRef.current = true;
+      return;
+    }
+    
     setSyncing(true);
+    syncingRef.current = true;
     setError(null);
     
     try {
@@ -101,14 +108,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const baseTodo = (await localforage.getItem<string[]>('todo_txt_base')) || [];
       const baseDone = (await localforage.getItem<string[]>('done_txt_base')) || [];
 
-      // Current local states
-      // We need to re-fetch from state safely or assume the ones loaded
-      const localTodoStr = (await localforage.getItem<string[]>('todo_txt')) || [];
-      const localDoneStr = (await localforage.getItem<string[]>('done_txt')) || [];
+      // Current local states at start of sync
+      const currentLocalTodoStr = (await localforage.getItem<string[]>('todo_txt')) || [];
+      const currentLocalDoneStr = (await localforage.getItem<string[]>('done_txt')) || [];
 
-      // Merge
-      const mergedTodoStr = mergeTasks(baseTodo, localTodoStr, remoteTodo.content);
-      const mergedDoneStr = mergeTasks(baseDone, localDoneStr, remoteDone.content);
+      // Merge remote into current local state
+      const mergedTodoStr = mergeTasks(baseTodo, currentLocalTodoStr, remoteTodo.content);
+      const mergedDoneStr = mergeTasks(baseDone, currentLocalDoneStr, remoteDone.content);
 
       // Save to github if changed
       let newTodoSha = remoteTodo.sha;
@@ -121,7 +127,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         newDoneSha = await github.saveFile('done.txt', mergedDoneStr, remoteDone.sha);
       }
 
-      // Update local base and state
+      // Update local base with what we just pushed
       await localforage.setItem('todo_txt_base', mergedTodoStr);
       await localforage.setItem('done_txt_base', mergedDoneStr);
       
@@ -129,16 +135,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await localforage.setItem('last_sync', newSyncDate);
       setLastSync(newSyncDate);
 
-      // We must update the React state here safely
-      setTasks(mergedTodoStr.map(parseTodo));
-      setDoneTasks(mergedDoneStr.map(parseTodo));
-      await localforage.setItem('todo_txt', mergedTodoStr);
-      await localforage.setItem('done_txt', mergedDoneStr);
+      // Resolve any local edits that happened during the network requests
+      const latestLocalTodoStr = (await localforage.getItem<string[]>('todo_txt')) || [];
+      const latestLocalDoneStr = (await localforage.getItem<string[]>('done_txt')) || [];
+
+      const finalLocalTodo = mergeTasks(currentLocalTodoStr, latestLocalTodoStr, mergedTodoStr);
+      const finalLocalDone = mergeTasks(currentLocalDoneStr, latestLocalDoneStr, mergedDoneStr);
+
+      setTasks(finalLocalTodo.map(parseTodo));
+      setDoneTasks(finalLocalDone.map(parseTodo));
+      await localforage.setItem('todo_txt', finalLocalTodo);
+      await localforage.setItem('done_txt', finalLocalDone);
     } catch (e: any) {
       setError(e.message || "Failed to sync");
       console.error(e);
     } finally {
       setSyncing(false);
+      syncingRef.current = false;
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        syncWithConfig(currentConfig).catch(console.error);
+      }
     }
   };
 
@@ -154,7 +171,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await localforage.setItem('done_txt', newDoneTasks.map(stringifyTask));
     
     // Auto-sync if configured and online
-    if (configRef.current && navigator.onLine && !syncingRef.current) {
+    if (configRef.current && navigator.onLine) {
       syncWithConfig(configRef.current).catch(console.error);
     }
   };
