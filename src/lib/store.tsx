@@ -11,6 +11,9 @@ interface AppState {
   syncing: boolean;
   error: string | null;
   searchTerm: string;
+  showCompleted: boolean;
+  showArchive: boolean;
+  showFuture: boolean;
 }
 
 interface AppContextType extends AppState {
@@ -19,8 +22,11 @@ interface AppContextType extends AppState {
   addTask: (line: string) => void;
   updateTask: (id: string, line: string) => void;
   toggleTask: (id: string) => void;
-  deleteTask: (id: string) => void;
+  archiveTasks: () => void;
   setSearchTerm: (term: string) => void;
+  setShowCompleted: (show: boolean) => void;
+  setShowArchive: (show: boolean) => void;
+  setShowFuture: (show: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -34,6 +40,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCompleted, setShowCompletedState] = useState(false);
+  const [showArchive, setShowArchiveState] = useState(false);
+  const [showFuture, setShowFutureState] = useState(true);
 
   const configRef = { current: config };
   const syncingRef = { current: syncing };
@@ -57,6 +66,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const storedLastSync = await localforage.getItem<Date>('last_sync');
       if (storedLastSync) setLastSync(storedLastSync);
       
+      const storedShowCompleted = await localforage.getItem<boolean>('settings_showCompleted');
+      if (storedShowCompleted !== null) setShowCompletedState(storedShowCompleted);
+      
+      const storedShowArchive = await localforage.getItem<boolean>('settings_showArchive');
+      if (storedShowArchive !== null) setShowArchiveState(storedShowArchive);
+      
+      const storedShowFuture = await localforage.getItem<boolean>('settings_showFuture');
+      if (storedShowFuture !== null) setShowFutureState(storedShowFuture);
+
       setInitialized(true);
       
       // Auto-sync if configured
@@ -146,6 +164,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await localforage.setItem('github_config', newConfig);
   };
 
+  const setShowCompleted = async (show: boolean) => {
+    setShowCompletedState(show);
+    await localforage.setItem('settings_showCompleted', show);
+  };
+  
+  const setShowArchive = async (show: boolean) => {
+    setShowArchiveState(show);
+    await localforage.setItem('settings_showArchive', show);
+  };
+  
+  const setShowFuture = async (show: boolean) => {
+    setShowFutureState(show);
+    await localforage.setItem('settings_showFuture', show);
+  };
+
   const addTask = (line: string) => {
     const task = parseTodo(line);
     saveTasks([...tasks, task], doneTasks);
@@ -162,25 +195,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const taskIndex = tasks.findIndex(t => t.id === id);
     if (taskIndex >= 0) {
       const task = tasks[taskIndex];
-      const newTask = parseTodo(`x ${new Date().toISOString().split('T')[0]} ${task.raw}`);
+      let newTaskRaw = task.raw;
+      if (task.completed) {
+        // Un-complete
+        newTaskRaw = task.raw.replace(/^x \d{4}-\d{2}-\d{2} /, '');
+      } else {
+        // Complete
+        newTaskRaw = `x ${new Date().toISOString().split('T')[0]} ${task.raw}`;
+      }
+      const newTask = parseTodo(newTaskRaw);
+      
       saveTasks(
-        tasks.filter(t => t.id !== id),
-        [...doneTasks, newTask]
+        tasks.map(t => t.id === id ? newTask : t),
+        doneTasks
       );
     }
   };
 
-  const deleteTask = (id: string) => {
-    saveTasks(
-      tasks.filter(t => t.id !== id),
-      doneTasks.filter(t => t.id !== id)
-    );
+  const archiveTasks = () => {
+    const completedTasks = tasks.filter(t => t.completed);
+    const remainingTasks = tasks.filter(t => !t.completed);
+    if (completedTasks.length > 0) {
+      saveTasks(
+        remainingTasks,
+        [...completedTasks, ...doneTasks]
+      );
+    }
   };
 
   if (!initialized) return null;
 
   return (
-    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, searchTerm, setConfig, sync, addTask, updateTask, toggleTask, deleteTask, setSearchTerm }}>
+    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, searchTerm, showCompleted, showArchive, showFuture, setConfig, sync, addTask, updateTask, toggleTask, archiveTasks, setSearchTerm, setShowCompleted, setShowArchive, setShowFuture }}>
       {children}
     </AppContext.Provider>
   );
