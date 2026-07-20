@@ -1,5 +1,5 @@
 import { useApp } from '../lib/store';
-import { CheckCircle2, Circle, Eye, EyeOff, Archive, ArchiveX } from 'lucide-react';
+import { CheckCircle2, Circle, Eye, EyeOff, Archive, ArchiveX, X } from 'lucide-react';
 
 export function TaskInput() {
   const { addTask, searchTerm, setSearchTerm, showCompleted, setShowCompleted, showArchive, setShowArchive, showFuture, setShowFuture } = useApp();
@@ -8,6 +8,12 @@ export function TaskInput() {
     e.preventDefault();
     if (searchTerm.trim()) {
       addTask(searchTerm.trim());
+      setSearchTerm('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
       setSearchTerm('');
     }
   };
@@ -50,10 +56,21 @@ export function TaskInput() {
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="(Priority) YYYY-MM-DD Task @context +project"
-          className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 pr-20 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors placeholder-white/20"
+          className="w-full bg-black/40 border border-white/10 rounded-lg py-3 pl-4 pr-[110px] text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors placeholder-white/20"
         />
-        <div className="absolute right-3 flex gap-2">
+        <div className="absolute right-3 flex items-center gap-2">
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-white/5 rounded-md transition-colors"
+              aria-label="Clear text"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
           <button
             type="submit"
             disabled={!searchTerm.trim()}
