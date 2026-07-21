@@ -47,6 +47,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const configRef = useRef(config);
   const syncingRef = useRef(syncing);
   const dirtyRef = useRef(false);
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
     configRef.current = config;
@@ -172,7 +173,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     // Auto-sync if configured and online
     if (configRef.current && navigator.onLine) {
-      syncWithConfig(configRef.current).catch(console.error);
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+      syncTimeoutRef.current = setTimeout(() => {
+        if (configRef.current) {
+          syncWithConfig(configRef.current).catch(console.error);
+        }
+      }, 2000);
     }
   };
 

@@ -22,9 +22,9 @@ export function TaskItem({ task }: { task: Task }) {
 
   const currentPm = parseInt(task.tags['pm'] || '0', 10) || 0;
 
-  const updatePomodoro = (e: React.MouseEvent, delta: number) => {
+  const setPomodoro = (e: React.SyntheticEvent, val: number) => {
     e.stopPropagation();
-    let nextPm = currentPm + delta;
+    let nextPm = val;
     if (nextPm < 0) nextPm = 0;
     
     let newRaw = task.raw;
@@ -39,6 +39,10 @@ export function TaskItem({ task }: { task: Task }) {
       updateTask(task.id, newRaw);
       setEditValue(newRaw);
     }
+  };
+
+  const updatePomodoro = (e: React.MouseEvent, delta: number) => {
+    setPomodoro(e, currentPm + delta);
   };
 
   const priorityColor = (priority: string | null) => {
@@ -118,7 +122,18 @@ export function TaskItem({ task }: { task: Task }) {
           <button onClick={(e) => updatePomodoro(e, -1)} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors" disabled={currentPm === 0}>
             <Minus className="w-3 h-3" />
           </button>
-          <span className="text-xs font-mono w-4 text-center text-slate-300">{currentPm}</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={currentPm === 0 ? '' : currentPm}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              setPomodoro(e, isNaN(val) ? 0 : val);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="text-xs font-mono w-6 text-center text-slate-300 bg-transparent outline-none"
+            placeholder="0"
+          />
           <button onClick={(e) => updatePomodoro(e, 1)} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white transition-colors">
             <Plus className="w-3 h-3" />
           </button>
