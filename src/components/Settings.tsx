@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../lib/store';
 import { X, Github, RefreshCw, ArrowRightToLine } from 'lucide-react';
 

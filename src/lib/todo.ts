@@ -115,3 +115,74 @@ export function mergeTasks(base: string[], local: string[], remote: string[]): s
 
   return Array.from(merged);
 }
+
+export interface SearchStats {
+  searchTerm: string;
+  totalMatching: number;
+  visibleMatching: number;
+  hiddenTotal: number;
+  hiddenCompleted: number;
+  hiddenFuture: number;
+  hiddenArchive: number;
+}
+
+export function calculateSearchStats(
+  tasks: Task[],
+  doneTasks: Task[],
+  searchTerm: string,
+  showCompleted: boolean,
+  showArchive: boolean,
+  showFuture: boolean
+): SearchStats {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) {
+    return {
+      searchTerm: '',
+      totalMatching: 0,
+      visibleMatching: 0,
+      hiddenTotal: 0,
+      hiddenCompleted: 0,
+      hiddenFuture: 0,
+      hiddenArchive: 0,
+    };
+  }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  let hiddenCompleted = 0;
+  let hiddenFuture = 0;
+  let hiddenArchive = 0;
+  let visibleMatching = 0;
+  let totalMatching = 0;
+
+  const allTasks = [...tasks, ...doneTasks];
+
+  for (const t of allTasks) {
+    if (t.raw.toLowerCase().includes(term)) {
+      totalMatching++;
+      const isArchived = doneTasks.includes(t);
+
+      if (isArchived && !showArchive) {
+        hiddenArchive++;
+      } else if (!isArchived && t.completed && !showCompleted) {
+        hiddenCompleted++;
+      } else if (!showFuture && t.tags['t'] && t.tags['t'] > todayStr) {
+        hiddenFuture++;
+      } else {
+        visibleMatching++;
+      }
+    }
+  }
+
+  const hiddenTotal = hiddenCompleted + hiddenFuture + hiddenArchive;
+
+  return {
+    searchTerm,
+    totalMatching,
+    visibleMatching,
+    hiddenTotal,
+    hiddenCompleted,
+    hiddenFuture,
+    hiddenArchive,
+  };
+}

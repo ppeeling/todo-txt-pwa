@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Task } from '../lib/todo';
 import { useApp } from '../lib/store';
 import { Trash2, Edit2, Check, X, Plus, Minus, Timer } from 'lucide-react';
 
-export function TaskItem({ task }: { task: Task }) {
+interface TaskItemProps {
+  task: Task;
+  key?: string;
+}
+
+export function TaskItem({ task }: TaskItemProps) {
   const { toggleTask, updateTask } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.raw);

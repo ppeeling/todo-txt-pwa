@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import localforage from 'localforage';
 import { SyncConfig, GitHubSync } from './github';
 import { Task, parseTodo, stringifyTask, mergeTasks } from './todo';
