@@ -22,6 +22,7 @@ interface AppContextType extends AppState {
   addTask: (line: string) => void;
   updateTask: (id: string, line: string) => void;
   toggleTask: (id: string) => void;
+  deleteTask: (id: string) => void;
   archiveTasks: () => void;
   setSearchTerm: (term: string) => void;
   setShowCompleted: (show: boolean) => void;
@@ -241,6 +242,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteTask = (id: string) => {
+    const newTasks = tasks.filter(t => t.id !== id);
+    const newDoneTasks = doneTasks.filter(t => t.id !== id);
+    saveTasks(newTasks, newDoneTasks);
+  };
+
   const archiveTasks = () => {
     const completedTasks = tasks.filter(t => t.completed);
     const remainingTasks = tasks.filter(t => !t.completed);
@@ -255,7 +262,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   if (!initialized) return null;
 
   return (
-    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, searchTerm, showCompleted, showArchive, showFuture, setConfig, sync, addTask, updateTask, toggleTask, archiveTasks, setSearchTerm, setShowCompleted, setShowArchive, setShowFuture }}>
+    <AppContext.Provider value={{ tasks, doneTasks, config, lastSync, syncing, error, searchTerm, showCompleted, showArchive, showFuture, setConfig, sync, addTask, updateTask, toggleTask, deleteTask, archiveTasks, setSearchTerm, setShowCompleted, setShowArchive, setShowFuture }}>
       {children}
     </AppContext.Provider>
   );

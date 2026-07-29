@@ -9,9 +9,10 @@ interface TaskItemProps {
 }
 
 export function TaskItem({ task }: TaskItemProps) {
-  const { toggleTask, updateTask } = useApp();
+  const { toggleTask, updateTask, deleteTask } = useApp();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(task.raw);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleSave = () => {
     if (editValue.trim() !== task.raw) {
@@ -143,9 +144,50 @@ export function TaskItem({ task }: TaskItemProps) {
             <Plus className="w-3 h-3" />
           </button>
         </div>
-        <button onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }} className={`p-1.5 rounded-md transition-colors ${task.completed ? 'text-indigo-400 bg-indigo-400/10 hover:bg-indigo-400/20' : 'text-slate-400 hover:text-emerald-400 hover:bg-white/5'}`}>
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleTask(task.id); }}
+          title={task.completed ? "Mark uncompleted" : "Mark completed"}
+          className={`p-1.5 rounded-md transition-colors ${task.completed ? 'text-indigo-400 bg-indigo-400/10 hover:bg-indigo-400/20' : 'text-slate-400 hover:text-emerald-400 hover:bg-white/5'}`}
+        >
           <Check className="w-4 h-4" />
         </button>
+
+        {showDeleteConfirm ? (
+          <div className="flex items-center gap-1 bg-rose-500/10 border border-rose-500/30 rounded-md p-0.5" onClick={(e) => e.stopPropagation()}>
+            <span className="text-[11px] text-rose-300 font-medium px-1.5">Delete?</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                deleteTask(task.id);
+              }}
+              title="Confirm deletion (removes line)"
+              className="px-1.5 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded transition-colors text-xs font-medium flex items-center justify-center"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDeleteConfirm(false);
+              }}
+              title="Cancel"
+              className="p-1 hover:bg-white/10 text-slate-400 hover:text-slate-200 rounded transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteConfirm(true);
+            }}
+            title="Delete task (removes line)"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-md transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
   );
